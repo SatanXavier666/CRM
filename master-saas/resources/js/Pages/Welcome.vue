@@ -215,7 +215,7 @@
             </section>
 
             <!-- Footer -->
-            <footer class="container mx-auto px-6 py-12 mt-32 border-t border-slate-800">
+            <footer class="container mx-auto px-6 py-12 mt-32 mb-20 border-t border-slate-800">
                 <div class="text-center">
                     <p class="text-slate-400">
                         Built with
@@ -227,11 +227,15 @@
                 </div>
             </footer>
         </div>
+
+        <!-- Server Status Bar -->
+        <ServerStatus />
     </div>
 </template>
 
 <script setup>
 import { Head } from '@inertiajs/vue3';
+import ServerStatus from '../Components/ServerStatus.vue';
 </script>
 
 <style scoped>

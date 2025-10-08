@@ -255,12 +255,16 @@
                 </div>
             </div>
         </div>
+
+        <!-- Server Status Bar -->
+        <ServerStatus />
     </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
+import ServerStatus from '../Components/ServerStatus.vue';
 
 const form = ref({
     email: '',
