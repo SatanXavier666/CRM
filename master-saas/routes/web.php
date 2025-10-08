@@ -6,3 +6,11 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
+
+Route::get('/login', function () {
+    return Inertia::render('Login');
+})->name('login');
+
+Route::get('/demo', function () {
+    return Inertia::render('Login');
+})->name('demo');
