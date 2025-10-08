@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -54,18 +58,29 @@ jobs:
           resources/js/Components \
           routes/web.php
 
-    - name: Deploy to Hostinger via SCP
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOSTINGER_SSH_HOST }}
-        username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        port: ${{ secrets.HOSTINGER_SSH_PORT }}
-        source: "deploy-package.tar.gz"
-        target: "/home/u458200173/"
-        overwrite: true
+    - name: Deploy to Hostinger via FTP
+      env:
+        FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+      run: |
+        sudo apt-get update && sudo apt-get install -y lftp
 
-    - name: Extract and deploy files
+        # Upload deployment package
+        lftp -c "
+        set ftp:ssl-allow no;
+        set net:timeout 10;
+        set net:max-retries 3;
+        open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER;
+        cd /domains/master.astracareportal.com/private_html;
+        put deploy-package.tar.gz;
+        bye;
+        "
+
+        echo "✅ Deployment package uploaded successfully!"
+
+    - name: Extract files via SSH (optional)
+      continue-on-error: true
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -73,15 +88,13 @@ jobs:
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: ${{ secrets.HOSTINGER_SSH_PORT }}
         script: |
-          cd /home/u458200173
-          tar -xzf deploy-package.tar.gz -C domains/master.astracareportal.com/private_html/
           cd /home/u458200173/domains/master.astracareportal.com/private_html
+          tar -xzf deploy-package.tar.gz
           php artisan optimize:clear
           php artisan config:cache
           php artisan route:cache
-          php artisan view:cache
           chmod -R 755 storage bootstrap/cache
-          echo "✅ Deployment completed successfully!"
+          echo "✅ Deployed and optimized!"
 
     - name: Deployment notification
       if: success()
