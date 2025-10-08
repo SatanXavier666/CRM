@@ -1,0 +1,98 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, json, curl, zip, bcmath, pdo, pdo_mysql
+        coverage: none
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'master-saas/package-lock.json'
+
+    - name: Install Composer dependencies
+      working-directory: ./master-saas
+      run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+    - name: Install NPM dependencies
+      working-directory: ./master-saas
+      run: npm ci
+
+    - name: Build frontend assets
+      working-directory: ./master-saas
+      run: npm run build
+
+    - name: Create deployment package
+      run: |
+        cd master-saas
+        tar -czf ../deploy-package.tar.gz \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='tests' \
+          --exclude='.env.example' \
+          --exclude='storage/logs/*' \
+          --exclude='storage/framework/cache/*' \
+          --exclude='storage/framework/sessions/*' \
+          --exclude='storage/framework/views/*' \
+          .
+
+    - name: Deploy to Hostinger via SFTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+        username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+        password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+        server-dir: /domains/master.astracareportal.com/private_html/
+        local-dir: ./master-saas/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/tests/**
+          **/.env.example
+          **/storage/logs/**
+          **/storage/framework/cache/**
+          **/storage/framework/sessions/**
+          **/storage/framework/views/**
+
+    - name: Run post-deployment commands
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOSTINGER_SSH_HOST }}
+        username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        port: ${{ secrets.HOSTINGER_SSH_PORT }}
+        script: |
+          cd /home/u458200173/domains/master.astracareportal.com/private_html
+          php artisan optimize:clear
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          chmod -R 755 storage bootstrap/cache
+          echo "Deployment completed successfully!"
+
+    - name: Deployment notification
+      if: success()
+      run: |
+        echo "✅ Deployment to Hostinger successful!"
+        echo "Site: https://master.astracareportal.com"
+        echo "Health: https://master.astracareportal.com/health"
