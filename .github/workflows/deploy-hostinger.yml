@@ -49,32 +49,23 @@ jobs:
           --exclude='node_modules' \
           --exclude='tests' \
           --exclude='.env.example' \
-          --exclude='storage/logs/*' \
-          --exclude='storage/framework/cache/*' \
-          --exclude='storage/framework/sessions/*' \
-          --exclude='storage/framework/views/*' \
-          .
+          public/build \
+          resources/js/Pages \
+          resources/js/Components \
+          routes/web.php
 
-    - name: Deploy to Hostinger via SFTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+    - name: Deploy to Hostinger via SCP
+      uses: appleboy/scp-action@v0.1.7
       with:
-        server: ${{ secrets.HOSTINGER_FTP_SERVER }}
-        username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-        password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-        server-dir: /domains/master.astracareportal.com/private_html/
-        local-dir: ./master-saas/
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          **/tests/**
-          **/.env.example
-          **/storage/logs/**
-          **/storage/framework/cache/**
-          **/storage/framework/sessions/**
-          **/storage/framework/views/**
+        host: ${{ secrets.HOSTINGER_SSH_HOST }}
+        username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        port: ${{ secrets.HOSTINGER_SSH_PORT }}
+        source: "deploy-package.tar.gz"
+        target: "/home/u458200173/"
+        overwrite: true
 
-    - name: Run post-deployment commands
+    - name: Extract and deploy files
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -82,13 +73,15 @@ jobs:
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: ${{ secrets.HOSTINGER_SSH_PORT }}
         script: |
+          cd /home/u458200173
+          tar -xzf deploy-package.tar.gz -C domains/master.astracareportal.com/private_html/
           cd /home/u458200173/domains/master.astracareportal.com/private_html
           php artisan optimize:clear
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
           chmod -R 755 storage bootstrap/cache
-          echo "Deployment completed successfully!"
+          echo "✅ Deployment completed successfully!"
 
     - name: Deployment notification
       if: success()
